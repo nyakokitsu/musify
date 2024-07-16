@@ -24,12 +24,13 @@ token = session.tokens().get("user-read-email")
 is_premium = session.get_user_attribute("type") == "premium"
 audio_quality = AudioQuality.VERY_HIGH if is_premium else AudioQuality.HIGH
 
+load_dotenv() 
 spotify = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials(client_id=os.getenv("SPOT_ID"), client_secret=os.getenv("SPOT_SECRET")))
 
 
 logging.basicConfig(level=logging.INFO)
 
-load_dotenv() 
+
 bot = Bot(token=os.getenv("TOKEN"), parse_mode='HTML')
 
 dp = Dispatcher()
