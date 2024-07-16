@@ -84,7 +84,6 @@ async def send_welcome(message: types.Message, track: Match[str]):
     await photo.delete()
 
 
-# Запуск процесса поллинга новых апдейтов
 async def main():
     await dp.start_polling(bot)
     
