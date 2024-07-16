@@ -24,7 +24,7 @@ token = session.tokens().get("user-read-email")
 is_premium = session.get_user_attribute("type") == "premium"
 audio_quality = AudioQuality.VERY_HIGH if is_premium else AudioQuality.HIGH
 
-spotify = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials(client_id="bb3126fb131d4ad08a3b07dad8c090f9", client_secret="16f702b0e3b94234ac8bb4b2b64189c8"))
+spotify = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials(client_id=os.getenv("SPOT_ID"), client_secret=os.getenv("SPOT_SECRET")))
 
 
 logging.basicConfig(level=logging.INFO)
