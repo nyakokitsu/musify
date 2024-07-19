@@ -5,6 +5,7 @@ from re import Match
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.types import FSInputFile, URLInputFile, InlineQuery, CallbackQuery, InlineQueryResultAudio, InputTextMessageContent, InlineQueryResultArticle, BufferedInputFile
 from aiogram.filters.command import Command
+from aiogram.handlers import ChosenInlineResultHandler
 from aiogram import html
 import glob
 from dotenv import load_dotenv
@@ -54,13 +55,30 @@ bot = Bot(token=os.getenv("TOKEN"), parse_mode='HTML')
 dp = Dispatcher()
 
 
-@dp.callback_query(F.text == 'close_menu')
+@dp.callback_query(F.text.startswith('close_menu_'))
 async def close(callback: CallbackQuery):
+    id = callback.data.replace("close_menu_")
     buttons = [
-        [types.InlineKeyboardButton(text="open menu", callback_data="open_menu")]
+        [types.InlineKeyboardButton(text="🔽 open menu", callback_data=f"open_menu_{id}")]
     ]
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=buttons)
     await bot.edit_message_reply_markup(chat_id=callback.message.chat.id, message_id=callback.message.message_id, reply_markup=keyboard)
+
+
+
+@dp.callback_query(F.text.startswith('open_menu_'))
+async def open(callback: CallbackQuery):
+    id = callback.data.replace("open_menu_")
+    buttons = [
+        [types.InlineKeyboardButton(text="❤️", callback_data=f"like_{id}")],
+        [types.InlineKeyboardButton(text="recommendations", switch_inline_query_current_chat=f"recs {id}")],
+        [types.InlineKeyboardButton(text="share", switch_inline_query_chosen_chat=f"https://open.spotify.com/track/{id}"),
+         types.InlineKeyboardButton(text="spotify", url=f"https://open.spotify.com/track/{id}")],
+         [types.InlineKeyboardButton(text="🔼 close menu", callback_data=f"close_menu_{id}")],
+    ]
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=buttons)
+    await bot.edit_message_reply_markup(chat_id=callback.message.chat.id, message_id=callback.message.message_id, reply_markup=keyboard)
+
 
 @dp.inline_query(F.text.regexp(r'^(https?://)?open\.spotify\.com/track/(?P<TrackID>[0-9a-zA-Z]{22})(\?si=.+?)?$').as_("track"))
 async def tracklink(inline_query: InlineQuery):
@@ -79,6 +97,9 @@ async def tracklink(inline_query: InlineQuery):
             audio_url="https://github.com/anars/blank-audio/raw/master/1-second-of-silence.mp3"
         )])
 
+@dp.chosen_inline_result()
+async def process_audio(chosen: ChosenInlineResultHandler):
+    print(chosen)
 
 @dp.inline_query(F.query.startswith("search "))
 async def search(inline_query: InlineQuery):
@@ -98,6 +119,21 @@ async def search(inline_query: InlineQuery):
             input_message_content=InputTextMessageContent(message_text=f"https://open.spotify.com/track/{song['id']}")
         ))
     await inline_query.answer(searchresults, is_personal=True)
+    
+
+'''
+@dp.inline_query(F.query == "")
+async def np(inline_query: InlineQuery):
+    
+        searchresults.append(InlineQueryResultArticle(
+            id=str(song['id']),  # индекс элемента в list
+            title=song['name'],
+            description=f"{artists} • {song['year']}",
+            thumbnail_url=song["album"]["images"][0]['url'],
+            input_message_content=InputTextMessageContent(message_text=f"https://open.spotify.com/track/{song['id']}")
+        ))
+    await inline_query.answer(searchresults, is_personal=True)
+'''
     
 
 # Хэндлер на команду /start
