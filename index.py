@@ -39,23 +39,43 @@ dp = Dispatcher()
 async def search(inline_query: InlineQuery):
     results = spotify.search(q=inline_query.query.replace("search ", ""))
     searchresults = []
-    #print(results)
     for song in results['tracks']['items']:
         artists_raw = []
         for data in song["artists"]:
             artists_raw.append(sanitize_data(data["name"]))
         artists = ", ".join(artists_raw)
+        album = song["album"]
+        release_year = album["release_date"] if album["release_date_precision"] == "year" else album["release_date"].split("-")[0]
         searchresults.append(InlineQueryResultArticle(
-            id=str(song['id']),  # индекс элемента в list
+            id=str(song['id']),
             title=song['name'],
-            description=artists,
+            description=f'{artists} ⦁ {album["name"]} ⦁ {release_year}',
             thumbnail_url=song["album"]["images"][0]['url'],
             input_message_content=InputTextMessageContent(message_text=f"https://open.spotify.com/track/{song['id']}")
         ))
     await inline_query.answer(searchresults, is_personal=True)
     
+@dp.inline_query(F.query.startswith("recs "))
+async def recs(inline_query: InlineQuery):
+    print(inline_query.query.replace("recs ", ""))
+    results = spotify.recommendations(seed_tracks=[inline_query.query.replace("recs ", "")])
+    recsresults = []
+    for song in results['tracks']:
+        artists_raw = []
+        for data in song["artists"]:
+            artists_raw.append(sanitize_data(data["name"]))
+        artists = ", ".join(artists_raw)
+        album = song["album"]
+        release_year = album["release_date"] if album["release_date_precision"] == "year" else album["release_date"].split("-")[0]
+        recsresults.append(InlineQueryResultArticle(
+            id=str(song['id']),
+            title=song['name'],
+            description=f'{artists} ⦁ {album["name"]} ⦁ {release_year}',
+            thumbnail_url=song["album"]["images"][0]['url'],
+            input_message_content=InputTextMessageContent(message_text=f"https://open.spotify.com/track/{song['id']}")
+        ))
+    await inline_query.answer(recsresults, is_personal=True)
 
-# Хэндлер на команду /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     buttons = [
@@ -81,7 +101,11 @@ async def send_welcome(message: types.Message, track: Match[str]):
             formatted += x['name'] + ", "
     else:
         formatted = info['artists'][0]['name']
-    await message.reply_audio(audio=BufferedInputFile(file, "audio.mp3"), performer=formatted, title=info['name'], thumbnail=URLInputFile(url=info["album"]["images"][0]["url"]), duration=int(info["duration_ms"]/1000)) #thumbnail=URLInputFile(url=str(info[3]))
+    buttons = [
+        [types.InlineKeyboardButton(text="recommendations", switch_inline_query_current_chat=f"recs {track[2]}")]
+    ]
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=buttons)
+    await message.reply_audio(audio=BufferedInputFile(file, "audio.mp3"), performer=formatted, title=info['name'], thumbnail=URLInputFile(url=info["album"]["images"][0]["url"]), duration=int(info["duration_ms"]/1000), reply_markup=keyboard) #thumbnail=URLInputFile(url=str(info[3]))
     await photo.delete()
 
 
