@@ -58,7 +58,7 @@ async def search(inline_query: InlineQuery):
 @dp.inline_query(F.query.startswith("recs "))
 async def recs(inline_query: InlineQuery):
     print(inline_query.query.replace("recs ", ""))
-    results = spotify.recommendations(seed_tracks=[inline_query.query.replace("recs ", "")])
+    results = spotify.recommendations(seed_tracks=[inline_query.query.replace("recs ", "")], market="ES")
     recsresults = []
     for song in results['tracks']:
         artists_raw = []
@@ -87,7 +87,7 @@ async def cmd_start(message: types.Message):
 @dp.message(F.text.regexp(r'^(https?://)?open\.spotify\.com/track/(?P<TrackID>[0-9a-zA-Z]{22})(\?si=.+?)?$').as_("track"))
 async def send_welcome(message: types.Message, track: Match[str]):
     
-    info = spotify.track(track_id=track[2])
+    info = spotify.track(track_id=track[2], market="ES") # ES for Russian metadata
     #artists = ", ".join(info[0])
     photo = await message.reply("⏳")
     track_id = TrackId.from_uri(f"spotify:track:{track[2]}")
