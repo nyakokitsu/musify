@@ -26,8 +26,6 @@ is_premium = session.get_user_attribute("type") == "premium"
 audio_quality = AudioQuality.VERY_HIGH if is_premium else AudioQuality.HIGH
 
 load_dotenv() 
-
-load_dotenv() 
 spotify = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials(client_id=os.getenv("SPOT_ID"), client_secret=os.getenv("SPOT_SECRET")))
 
 r = redis.Redis(host=os.getenv("REDIS_HOST"), port=int(os.getenv("REDIS_PORT")), db=0)
