@@ -10,6 +10,7 @@ from aiogram import html
 import glob
 from dotenv import load_dotenv
 
+import json
 from utils import sanitize_data
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
@@ -26,9 +27,9 @@ is_premium = session.get_user_attribute("type") == "premium"
 audio_quality = AudioQuality.VERY_HIGH if is_premium else AudioQuality.HIGH
 
 load_dotenv() 
-spotify = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials(client_id=os.getenv("SPOT_ID"), client_secret=os.getenv("SPOT_SECRET")))
+spotify = spotipy.Spotify(language="ru", client_credentials_manager=SpotifyClientCredentials(client_id=os.getenv("SPOT_ID"), client_secret=os.getenv("SPOT_SECRET")))
 
-#r = redis.Redis(host=os.getenv("REDIS_HOST"), port=int(os.getenv("REDIS_PORT")), db=0)
+r = redis.Redis(host=os.getenv("REDIS_HOST"), port=int(os.getenv("REDIS_PORT")), password=os.getenv("REDIS_PWD"), db=0)
 #todo auth
 
 client_id = os.getenv("SPOT_ID")
@@ -36,7 +37,7 @@ client_secret = os.getenv("SPOT_SECRET")
 scope = (
     "user-read-playback-state playlist-read-private playlist-read-collaborative"
     " app-remote-control user-modify-playback-state user-library-modify"
-    " user-library-read"
+    " user-library-read user-read-recently-played"
 )
 sp_auth = spotipy.oauth2.SpotifyOAuth(
     client_id=client_id,
@@ -63,12 +64,21 @@ async def close(callback: CallbackQuery):
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=buttons)
     await bot.edit_message_reply_markup(chat_id=callback.message.chat.id, message_id=callback.message.message_id, reply_markup=keyboard)
 
-
+@dp.callback_query(F.data.startswith('like'))
+async def like(callback: CallbackQuery):
+    track_id = callback.data.replace("like_", "")
+    token = r.get()
+    if token != None:
+        auth = refresh_token(token, inline_query.from_user.id)
+        loc_sp = spotipy.Spotify(auth=auth["access_token"])
+        loc_sp.current_user_saved_tracks_add([track_id])
+        await callback.answer("added!", show_alert=True)
+    else:
+        await callback.answer("auth needed!", show_alert=True)
 
 @dp.callback_query(F.data.startswith('open_menu_'))
 async def openmenu(callback: CallbackQuery):
     track_id = callback.data.replace("open_menu_", "")
-    print(track_id)
     buttons = [
         [types.InlineKeyboardButton(text="❤️", callback_data=f"like_{track_id}")],
         [types.InlineKeyboardButton(text="recommendations", switch_inline_query_current_chat=f"recs {track_id}")],
@@ -105,6 +115,13 @@ async def tracklink(inline_query: InlineQuery):
         cache_time=0)
     # input_message_content=InputTextMessageContent(message_text=f"<a href='https://open.spotify.com/track/{song['id']}'>Spotify</a>"),
 
+
+def refresh_token(token, uid):
+    #print(str(token.decode("utf-8").replace("'", '"')))
+    token = json.loads(str(token.decode("utf-8")).replace("'", '"').replace("None", '"None"'))
+    auth = sp_auth.refresh_access_token(refresh_token=token["refresh_token"])
+    r.set(uid, json.dumps(auth))
+    return auth
 
 @dp.chosen_inline_result()
 async def process_audio(chosen: ChosenInlineResultHandler):
@@ -159,7 +176,7 @@ async def search(inline_query: InlineQuery):
     
 @dp.inline_query(F.query.startswith("recs "))
 async def recs(inline_query: InlineQuery):
-    print(inline_query.query.replace("recs ", ""))
+    #print(inline_query.query.replace("recs ", ""))
     results = spotify.recommendations(seed_tracks=[inline_query.query.replace("recs ", "")], market="ES")
     recsresults = []
     for song in results['tracks']:
@@ -178,25 +195,46 @@ async def recs(inline_query: InlineQuery):
         ))
     await inline_query.answer(recsresults, is_personal=True)
 
-'''
+
 @dp.inline_query(F.query == "")
 async def np(inline_query: InlineQuery):
-    
-        searchresults.append(InlineQueryResultArticle(
-            id=str(song['id']),  # индекс элемента в list
-            title=song['name'],
-            description=f"{artists} • {song['year']}",
-            thumbnail_url=song["album"]["images"][0]['url'],
-            input_message_content=InputTextMessageContent(message_text=f"https://open.spotify.com/track/{song['id']}")
-        ))
-    await inline_query.answer(searchresults, is_personal=True)
-'''
+    token = r.get(inline_query.from_user.id)
+    if token != None:
+        auth = refresh_token(token, inline_query.from_user.id)
+        loc_sp = spotipy.Spotify(auth=auth["access_token"])
+        results = loc_sp.current_user_recently_played(5)
+        songs = []
+        buttons = [
+            [types.InlineKeyboardButton(text="one moment....", callback_data="wait")]
+        ]
+        kb = types.InlineKeyboardMarkup(inline_keyboard=buttons)
+        for track in results["items"]:
+            song = track['track']
+            artists_raw = []
+            for data in song["artists"]:
+                artists_raw.append(sanitize_data(data["name"]))
+            artists = ", ".join(artists_raw)
+            songs.append(InlineQueryResultAudio(
+                id=str("audio" + song["id"]),  # индекс элемента в list
+                title=song['name'],
+                performer=f'{artists}',
+                thumbnail_url=song["album"]["images"][0]['url'],
+                audio_url="https://nyako.tk/empty.mp3",
+                reply_markup=kb,
+                audio_duration=int(song["duration_ms"]/1000)
+            ))
+        await inline_query.answer(songs,
+            is_personal=True,
+            cache_time=0)
+    else:
+        await inline_query.answer([], is_personal=True, switch_pm_text="link account", switch_pm_parameter="auth")
+
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     buttons = [
         [types.InlineKeyboardButton(text="search", switch_inline_query_current_chat="search ")],
-        #[types.InlineKeyboardButton(text="auth", url=sp_auth.get_authorize_url(message.from_user.id))]
+        [types.InlineKeyboardButton(text="auth", url=sp_auth.get_authorize_url(message.from_user.id))]
     ]
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=buttons)
     await message.reply("Hey! I'm musify bot! I can help you to listen spotify music in telegram! \nSend me link to any spotify track or try searching.", reply_markup=keyboard)
