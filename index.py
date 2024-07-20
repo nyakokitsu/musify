@@ -108,7 +108,6 @@ async def tracklink(inline_query: InlineQuery):
 
 @dp.chosen_inline_result()
 async def process_audio(chosen: ChosenInlineResultHandler):
-    print(chosen)
     if (chosen.result_id.startswith("audio")):
         track_id = chosen.result_id.replace("audio", "")
         info = spotify.track(track_id=track_id, market="ES") # ES for Russian metadata
