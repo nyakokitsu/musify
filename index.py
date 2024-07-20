@@ -136,7 +136,7 @@ async def process_audio(chosen: ChosenInlineResultHandler):
         )
         
         await bot.edit_message_media(media=InputMediaAudio(media=message.audio.file_id, title=info["name"], performer=artists, thumbnail=URLInputFile(url=info["album"]["images"][0]["url"]), duration=int(info["duration_ms"]/1000)), inline_message_id=chosen.inline_message_id)
-        await bot.edit_message_caption(inline_message_id=chosen.inline_message_id, caption=f"<a href='https://open.spotify.com/track/{song['id']}'>Spotify</a> | <a href='https://t.me/musify_bot'>Musify</a>")
+        await bot.edit_message_caption(inline_message_id=chosen.inline_message_id, caption=f"<a href='https://open.spotify.com/track/{info['id']}'>Spotify</a> | <a href='https://t.me/musify_bot'>Musify</a>")
 
 @dp.inline_query(F.query.startswith("search "))
 async def search(inline_query: InlineQuery):
