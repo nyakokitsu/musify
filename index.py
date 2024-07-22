@@ -67,9 +67,9 @@ async def close(callback: CallbackQuery):
 @dp.callback_query(F.data.startswith('like'))
 async def like(callback: CallbackQuery):
     track_id = callback.data.replace("like_", "")
-    token = r.get()
+    token = r.get(callback.from_user.id)
     if token != None:
-        auth = refresh_token(token, inline_query.from_user.id)
+        auth = refresh_token(token, callback.from_user.id)
         loc_sp = spotipy.Spotify(auth=auth["access_token"])
         loc_sp.current_user_saved_tracks_add([track_id])
         await callback.answer("added!", show_alert=True)
